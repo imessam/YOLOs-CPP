@@ -1,12 +1,26 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(yolo_ort)
 
+
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread")
+
 option(ONNXRUNTIME_DIR "Path to built ONNX Runtime directory." STRING)
+set(ONNXRUNTIME_DIR "/home/POWERCOM.CO/essam/onnx/onnxruntime-linux-x64-gpu-1.21.0")
 message(STATUS "ONNXRUNTIME_DIR: ${ONNXRUNTIME_DIR}")
+
+# CUDA
+set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
+find_package(CUDA 10.2 REQUIRED)
+
+# set(CMAKE_CUDA_STANDARD 10.1)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+# !CUDA
 
 find_package(OpenCV REQUIRED)
 
 include_directories("include/")
+include_directories("../Detection/include/")
 
 # Add executable for image inference
 add_executable(image_inference

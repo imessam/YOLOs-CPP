@@ -15,7 +15,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
-#include "tools/Config.hpp" // Include the config file to access the flags
+#include "Config.hpp" // Include the config file to access the flags
 
 #ifdef TIMING_MODE
 class ScopedTimer {

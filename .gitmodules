@@ -1,0 +1,4 @@
+[submodule "libs/DetectionData"]
+	path = libs/DetectionData
+	url = git@github.com:imessam/DetectionData.git
+	branch = main
