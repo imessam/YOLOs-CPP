@@ -104,7 +104,7 @@ int main()
     // Model paths for different YOLO versions
     // const std::string modelPath = "../models/yolov9s.onnx"; // YOLOv9
     // const std::string modelPath = "../models/yolo11n.onnx"; // YOLOv11
-    const std::string modelPath = "../models/yolo12n.onnx"; // YOLOv12
+    const std::string modelPath = "../models/yolov11n.onnx"; // YOLOv12
 
 
 

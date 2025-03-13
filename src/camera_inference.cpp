@@ -61,11 +61,12 @@
 // #include "det/YOLO9.hpp"
 // #include "det/YOLO8.hpp"
 // #include "det/YOLO10.hpp"
-// #include "det/YOLO11.hpp" 
-#include "det/YOLO12.hpp" 
+#include "det/YOLO11.hpp" 
+// #include "det/YOLO12.hpp" 
 
 
 // Include the bounded queue
+#include "opencv2/highgui.hpp"
 #include "tools/BoundedThreadSafeQueue.hpp"
 
 int main()
@@ -81,22 +82,22 @@ int main()
     // const std::string modelPath = "../models/yolov9s.onnx"; 
     // std::string modelPath = "../models/yolo10n_uint8.onnx"; 
     // const std::string modelPath = "../models/yolo11n.onnx";
-    const std::string modelPath = "../models/yolo12n.onnx";
+    const std::string modelPath = "../models/yolov11n.onnx";
 
 
 
 
 
-    const std::string videoSource = "/dev/video0"; // your usb cam device
+    const std::string videoSource = "rtsp://192.168.80.2:8554/stream"; // your usb cam device
 
     // Initialize YOLO detector
     // YOLO9Detector detector(modelPath, labelsPath, isGPU);
-    YOLO12Detector detector(modelPath, labelsPath, isGPU);
+    YOLO11Detector detector(modelPath, labelsPath, isGPU);
 
 
     // Open video capture
     cv::VideoCapture cap;
-    cap.open(videoSource, cv::CAP_V4L2); // Specify V4L2 backend for better performance
+    cap.open(videoSource); // Specify V4L2 backend for better performance
     if (!cap.isOpened())
     {
         std::cerr << "Error: Could not open the camera!\n";
@@ -161,6 +162,7 @@ int main()
     #else
     // Display thread: Show processed frames
     std::thread displayThread([&]() {
+        cv::namedWindow("Detections", cv::WINDOW_NORMAL);
         while (!stopFlag.load() && processedQueue.dequeue(item))
         {
             cv::Mat displayFrame = item.first;
