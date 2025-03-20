@@ -125,11 +125,17 @@ namespace yolo_utils {
         Ort::Session session{nullptr};                 // ONNX Runtime session for running inference
         bool isDynamicInputShape{};                    // Flag indicating if input shape is dynamic
         cv::Size inputImageShape;                      // Expected input image shape for the model
-    
+
+        #if ONNXRUNTIME_VERSION <= 11
+            std::vector<const char *> inputNodeNameAllocatedStrings;
+            std::vector<const char *> outputNodeNameAllocatedStrings;
+        #else
+            std::vector<Ort::AllocatedStringPtr> inputNodeNameAllocatedStrings;
+            std::vector<Ort::AllocatedStringPtr> outputNodeNameAllocatedStrings;
+        #endif
         // Vectors to hold allocated input and output node names
-        std::vector<Ort::AllocatedStringPtr> inputNodeNameAllocatedStrings;
+       
         std::vector<const char *> inputNames;
-        std::vector<Ort::AllocatedStringPtr> outputNodeNameAllocatedStrings;
         std::vector<const char *> outputNames;
     
         size_t numInputNodes, numOutputNodes;          // Number of input and output nodes in the model
