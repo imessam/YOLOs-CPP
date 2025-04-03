@@ -18,7 +18,6 @@
 #include "Debug.hpp"
 #include "ScopedTimer.hpp"
 #include "detection.h"
-#include "onnxruntime_c_api.h"
 
 // --- Utility Functions Implementation ---
 
@@ -208,13 +207,13 @@ void yolo_utils::drawBoundingBox(cv::Mat &image, const std::vector<Detection> &d
     for (const auto& detection : detections) {
         if (detection.conf <= CONFIDENCE_THRESHOLD)
             continue;
-        if (detection.class_id < 0 || static_cast<size_t>(detection.class_id) >= classNames.size())
+        if (detection.classId < 0 || static_cast<size_t>(detection.classId) >= classNames.size())
             continue;
-        const cv::Scalar& color = colors[detection.class_id % colors.size()];
+        const cv::Scalar& color = colors[detection.classId % colors.size()];
         cv::rectangle(image, cv::Point(detection.box.x, detection.box.y),
                       cv::Point(detection.box.x + detection.box.width, detection.box.y + detection.box.height),
                       color, 2, cv::LINE_AA);
-        std::string label = classNames[detection.class_id] + ": " +
+        std::string label = classNames[detection.classId] + ": " +
                             std::to_string(static_cast<int>(detection.conf * 100)) + "%";
         int fontFace = cv::FONT_HERSHEY_SIMPLEX;
         double fontScale = std::min(image.rows, image.cols) * 0.0008;
@@ -245,22 +244,22 @@ void yolo_utils::drawBoundingBoxMask(cv::Mat &image, const std::vector<Detection
     std::vector<const Detection*> filteredDetections;
     for (const auto& detection : detections) {
         if (detection.conf > CONFIDENCE_THRESHOLD &&
-            detection.class_id >= 0 &&
-            static_cast<size_t>(detection.class_id) < classNames.size()) {
+            detection.classId >= 0 &&
+            static_cast<size_t>(detection.classId) < classNames.size()) {
             filteredDetections.emplace_back(&detection);
         }
     }
     for (const auto* detection : filteredDetections) {
         cv::Rect box(detection->box.x, detection->box.y, detection->box.width, detection->box.height);
-        const cv::Scalar &color = classColors[detection->class_id];
+        const cv::Scalar &color = classColors[detection->classId];
         cv::rectangle(maskImage, box, color, cv::FILLED);
     }
     cv::addWeighted(maskImage, maskAlpha, image, 1.0f, 0, image);
     for (const auto* detection : filteredDetections) {
         cv::Rect box(detection->box.x, detection->box.y, detection->box.width, detection->box.height);
-        const cv::Scalar &color = classColors[detection->class_id];
+        const cv::Scalar &color = classColors[detection->classId];
         cv::rectangle(image, box, color, 2, cv::LINE_AA);
-        std::string label = classNames[detection->class_id] + ": " +
+        std::string label = classNames[detection->classId] + ": " +
                             std::to_string(static_cast<int>(detection->conf * 100)) + "%";
         int baseLine = 0;
         cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, fontSize, textThickness, &baseLine);
@@ -288,9 +287,6 @@ env{Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ONNX_DETECTION")}, sessionOptions{Ort::
  
      // Retrieve available execution providers (e.g., CPU, CUDA)
      std::vector<std::string> availableProviders = Ort::GetAvailableProviders();
-     for(const auto& provider : availableProviders) {
-         std::cout << provider << std::endl;
-     }
      auto cudaAvailable = std::find(availableProviders.begin(), availableProviders.end(), "CUDAExecutionProvider");
      OrtCUDAProviderOptions cudaOption;
  
@@ -319,28 +315,16 @@ env{Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ONNX_DETECTION")}, sessionOptions{Ort::
      Ort::TypeInfo inputTypeInfo = session.GetInputTypeInfo(0);
      std::vector<int64_t> inputTensorShapeVec = inputTypeInfo.GetTensorTypeAndShapeInfo().GetShape();
      isDynamicInputShape = (inputTensorShapeVec.size() >= 4) && (inputTensorShapeVec[2] == -1 && inputTensorShapeVec[3] == -1); // Check for dynamic dimensions
-     
-    // Allocate and store input node names
-     #if ONNXRUNTIME_VERSION <= 11
-        auto input_name = session.GetInputName(0, allocator);
-        inputNodeNameAllocatedStrings.push_back(input_name);
-        inputNames.push_back(inputNodeNameAllocatedStrings.back());
-    
-        // Allocate and store output node names
-        auto output_name = session.GetOutputName(0, allocator);
-        outputNodeNameAllocatedStrings.push_back(output_name);
-        outputNames.push_back(outputNodeNameAllocatedStrings.back());
-    #else
-        auto input_name = session.GetInputNameAllocated(0, allocator);
-        inputNodeNameAllocatedStrings.push_back(std::move(input_name));
-        inputNames.push_back(inputNodeNameAllocatedStrings.back().get());
-    
-        // Allocate and store output node names
-        auto output_name = session.GetOutputNameAllocated(0, allocator);
-        outputNodeNameAllocatedStrings.push_back(std::move(output_name));
-        outputNames.push_back(outputNodeNameAllocatedStrings.back().get());
-    #endif
-     
+ 
+     // Allocate and store input node names
+     auto input_name = session.GetInputNameAllocated(0, allocator);
+     inputNodeNameAllocatedStrings.push_back(std::move(input_name));
+     inputNames.push_back(inputNodeNameAllocatedStrings.back().get());
+ 
+     // Allocate and store output node names
+     auto output_name = session.GetOutputNameAllocated(0, allocator);
+     outputNodeNameAllocatedStrings.push_back(std::move(output_name));
+     outputNames.push_back(outputNodeNameAllocatedStrings.back().get());
  
      // Set the expected input image shape based on the model's input tensor
      if (inputTensorShapeVec.size() >= 4) {
@@ -379,7 +363,6 @@ cv::Mat YOLO11Detector::preprocess(const cv::Mat &image, float *&blob, std::vect
 }
 
 bool YOLO11Detector::postprocess(
-    
     const cv::Size &originalImageSize,
     const cv::Size &resizedImageShape,
     std::vector<Detection> &detections,
@@ -387,7 +370,6 @@ bool YOLO11Detector::postprocess(
     float confThreshold,
     float iouThreshold)
 {
-
     ScopedTimer timer("postprocessing");
     const float* rawOutput = outputTensors[0].GetTensorData<float>();
     const std::vector<int64_t> outputShape = outputTensors[0].GetTensorTypeAndShapeInfo().GetShape();
@@ -408,7 +390,6 @@ bool YOLO11Detector::postprocess(
     classIds.reserve(num_detections);
     std::vector<BoundingBox> nms_boxes;
     nms_boxes.reserve(num_detections);
-    std::vector<NormalizedBoundingBox> normalized_boxes;
     const float* ptr = rawOutput;
     for (size_t d = 0; d < num_detections; ++d) {
         float centerX = ptr[0 * num_detections + d];
@@ -438,17 +419,11 @@ bool YOLO11Detector::postprocess(
             roundedBox.y = std::round(scaledBox.y);
             roundedBox.width = std::round(scaledBox.width);
             roundedBox.height = std::round(scaledBox.height);
-            NormalizedBoundingBox normalizedBox;
-            normalizedBox.x = scaledBox.x / static_cast<float>(originalImageSize.width);
-            normalizedBox.y = scaledBox.y / static_cast<float>(originalImageSize.height);
-            normalizedBox.width = scaledBox.width / static_cast<float>(originalImageSize.width);
-            normalizedBox.height = scaledBox.height / static_cast<float>(originalImageSize.height);
             BoundingBox nmsBox = roundedBox;
             nmsBox.x += classId * 7680;
             nmsBox.y += classId * 7680;
             nms_boxes.emplace_back(nmsBox);
             boxes.emplace_back(roundedBox);
-            normalized_boxes.emplace_back(normalizedBox);
             confs.emplace_back(maxScore);
             classIds.emplace_back(classId);
         }
@@ -459,7 +434,6 @@ bool YOLO11Detector::postprocess(
     for (const int idx : indices) {
         detections.emplace_back(Detection{
             boxes[idx],
-            normalized_boxes[idx],
             confs[idx],
             classIds[idx]
         });
@@ -469,7 +443,6 @@ bool YOLO11Detector::postprocess(
 }
 
 bool YOLO11Detector::detect(const cv::Mat& image, std::vector<Detection> &detections, float confThreshold, float iouThreshold) {
-
     ScopedTimer timer("Overall detection");
     float* blobPtr = nullptr;
     std::vector<int64_t> inputTensorShape = {1, 3, inputImageShape.height, inputImageShape.width};
