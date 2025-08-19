@@ -61,13 +61,13 @@
 // #include "det/YOLO9.hpp"
 // #include "det/YOLO8.hpp"
 // #include "det/YOLO10.hpp"
-#include "det/YOLO11.hpp" 
+#include "YOLO11.h"
 // #include "det/YOLO12.hpp" 
 
 
 // Include the bounded queue
 #include "opencv2/highgui.hpp"
-#include "tools/BoundedThreadSafeQueue.hpp"
+#include "BoundedThreadSafeQueue.hpp"
 
 int main()
 {
@@ -112,7 +112,7 @@ int main()
     // Initialize queues with bounded capacity
     const size_t max_queue_size = 2; // Double buffering
     BoundedThreadSafeQueue<cv::Mat> frameQueue(max_queue_size);
-    BoundedThreadSafeQueue<std::pair<cv::Mat, std::vector<Detection>>> processedQueue(max_queue_size);
+    BoundedThreadSafeQueue<std::pair<cv::Mat, std::vector<detectiondata::Detection>>> processedQueue(max_queue_size);
     std::atomic<bool> stopFlag(false);
 
     // Producer thread: Capture frames
@@ -129,10 +129,11 @@ int main()
     // Consumer thread: Process frames
     std::thread consumer([&]() {
         cv::Mat frame;
+        std::vector<detectiondata::Detection> detections ;
         while (!stopFlag.load() && frameQueue.dequeue(frame))
         {
             // Perform detection
-            std::vector<Detection> detections = detector.detect(frame);
+            detector.detect(frame, detections);
 
             // Enqueue processed frame
             if (!processedQueue.enqueue(std::make_pair(frame, detections)))
@@ -141,7 +142,7 @@ int main()
         processedQueue.set_finished();
     });
 
-    std::pair<cv::Mat, std::vector<Detection>> item;
+    std::pair<cv::Mat, std::vector<detectiondata::Detection>> item;
 
     #ifdef __APPLE__
     // For macOS, ensure UI runs on the main thread

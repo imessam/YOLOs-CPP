@@ -12,12 +12,10 @@
  */
 
 // Include necessary libraries
-#include <iostream>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
-#include <atomic>
-#include "tools/Debug.hpp" // Include the config file to access the flags
+#include "Debug.hpp" // Include the config file to access the flags
 
 
 template<typename T>

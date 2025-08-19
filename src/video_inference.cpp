@@ -53,7 +53,7 @@
 // #include "det/YOLO9.hpp"  // Uncomment for YOLOv9
 // #include "det/YOLO10.hpp" // Uncomment for YOLOv10
 // #include "det/YOLO11.hpp" // Uncomment for YOLOv11
-#include "det/YOLO12.hpp" // Uncomment for YOLOv12
+#include "YOLO12.hpp" // Uncomment for YOLOv12
 
 
 // Thread-safe queue implementation

@@ -18,6 +18,7 @@
 #include "Debug.hpp"
 #include "ScopedTimer.hpp"
 #include "detection.h"
+#include "onnxruntime_c_api.h"
 
 // --- Utility Functions Implementation ---
 
@@ -94,9 +95,9 @@ void yolo_utils::letterBox(const cv::Mat& image, cv::Mat& outImage,
     cv::copyMakeBorder(outImage, outImage, padTop, padBottom, padLeft, padRight, cv::BORDER_CONSTANT, color);
 }
 
-BoundingBox yolo_utils::scaleCoords(const cv::Size &imageShape, BoundingBox coords,
+detectiondata::BoundingBox yolo_utils::scaleCoords(const cv::Size &imageShape, detectiondata::BoundingBox coords,
                             const cv::Size &imageOriginalShape, bool p_Clip) {
-    BoundingBox result;
+    detectiondata::BoundingBox result;
     float gain = std::min(static_cast<float>(imageShape.height) / static_cast<float>(imageOriginalShape.height),
                           static_cast<float>(imageShape.width) / static_cast<float>(imageOriginalShape.width));
     int padX = static_cast<int>(std::round((imageShape.width - imageOriginalShape.width * gain) / 2.0f));
@@ -114,7 +115,7 @@ BoundingBox yolo_utils::scaleCoords(const cv::Size &imageShape, BoundingBox coor
     return result;
 }
 
-void yolo_utils::NMSBoxes(const std::vector<BoundingBox>& boundingBoxes,
+void yolo_utils::NMSBoxes(const std::vector<detectiondata::BoundingBox>& boundingBoxes,
                 const std::vector<float>& scores,
                 float scoreThreshold,
                 float nmsThreshold,
@@ -151,7 +152,7 @@ void yolo_utils::NMSBoxes(const std::vector<BoundingBox>& boundingBoxes,
         if (suppressed[currentIdx])
             continue;
         indices.push_back(currentIdx);
-        const BoundingBox& currentBox = boundingBoxes[currentIdx];
+        const detectiondata::BoundingBox& currentBox = boundingBoxes[currentIdx];
         const float x1_max = currentBox.x;
         const float y1_max = currentBox.y;
         const float x2_max = currentBox.x + currentBox.width;
@@ -161,7 +162,7 @@ void yolo_utils::NMSBoxes(const std::vector<BoundingBox>& boundingBoxes,
             int compareIdx = sortedIndices[j];
             if (suppressed[compareIdx])
                 continue;
-            const BoundingBox& compareBox = boundingBoxes[compareIdx];
+            const detectiondata::BoundingBox& compareBox = boundingBoxes[compareIdx];
             const float x1 = std::max(x1_max, static_cast<float>(compareBox.x));
             const float y1 = std::max(y1_max, static_cast<float>(compareBox.y));
             const float x2 = std::min(x2_max, static_cast<float>(compareBox.x + compareBox.width));
@@ -202,18 +203,18 @@ std::vector<cv::Scalar> yolo_utils::generateColors(const std::vector<std::string
     return colorCache[hashKey];
 }
 
-void yolo_utils::drawBoundingBox(cv::Mat &image, const std::vector<Detection> &detections,
+void yolo_utils::drawBoundingBox(cv::Mat &image, const std::vector<detectiondata::Detection> &detections,
                             const std::vector<std::string> &classNames, const std::vector<cv::Scalar> &colors) {
     for (const auto& detection : detections) {
         if (detection.conf <= CONFIDENCE_THRESHOLD)
             continue;
-        if (detection.classId < 0 || static_cast<size_t>(detection.classId) >= classNames.size())
+        if (detection.class_id < 0 || static_cast<size_t>(detection.class_id) >= classNames.size())
             continue;
-        const cv::Scalar& color = colors[detection.classId % colors.size()];
+        const cv::Scalar& color = colors[detection.class_id % colors.size()];
         cv::rectangle(image, cv::Point(detection.box.x, detection.box.y),
                       cv::Point(detection.box.x + detection.box.width, detection.box.y + detection.box.height),
                       color, 2, cv::LINE_AA);
-        std::string label = classNames[detection.classId] + ": " +
+        std::string label = classNames[detection.class_id] + ": " +
                             std::to_string(static_cast<int>(detection.conf * 100)) + "%";
         int fontFace = cv::FONT_HERSHEY_SIMPLEX;
         double fontScale = std::min(image.rows, image.cols) * 0.0008;
@@ -229,7 +230,7 @@ void yolo_utils::drawBoundingBox(cv::Mat &image, const std::vector<Detection> &d
     }
 }
 
-void yolo_utils::drawBoundingBoxMask(cv::Mat &image, const std::vector<Detection> &detections,
+void yolo_utils::drawBoundingBoxMask(cv::Mat &image, const std::vector<detectiondata::Detection> &detections,
                                 const std::vector<std::string> &classNames, const std::vector<cv::Scalar> &classColors,
                                 float maskAlpha) {
     if (image.empty()) {
@@ -241,25 +242,25 @@ void yolo_utils::drawBoundingBoxMask(cv::Mat &image, const std::vector<Detection
     const double fontSize = std::min(imgHeight, imgWidth) * 0.0006;
     const int textThickness = std::max(1, static_cast<int>(std::min(imgHeight, imgWidth) * 0.001));
     cv::Mat maskImage(image.size(), image.type(), cv::Scalar::all(0));
-    std::vector<const Detection*> filteredDetections;
+    std::vector<const detectiondata::Detection*> filteredDetections;
     for (const auto& detection : detections) {
         if (detection.conf > CONFIDENCE_THRESHOLD &&
-            detection.classId >= 0 &&
-            static_cast<size_t>(detection.classId) < classNames.size()) {
+            detection.class_id >= 0 &&
+            static_cast<size_t>(detection.class_id) < classNames.size()) {
             filteredDetections.emplace_back(&detection);
         }
     }
     for (const auto* detection : filteredDetections) {
         cv::Rect box(detection->box.x, detection->box.y, detection->box.width, detection->box.height);
-        const cv::Scalar &color = classColors[detection->classId];
+        const cv::Scalar &color = classColors[detection->class_id];
         cv::rectangle(maskImage, box, color, cv::FILLED);
     }
     cv::addWeighted(maskImage, maskAlpha, image, 1.0f, 0, image);
     for (const auto* detection : filteredDetections) {
         cv::Rect box(detection->box.x, detection->box.y, detection->box.width, detection->box.height);
-        const cv::Scalar &color = classColors[detection->classId];
+        const cv::Scalar &color = classColors[detection->class_id];
         cv::rectangle(image, box, color, 2, cv::LINE_AA);
-        std::string label = classNames[detection->classId] + ": " +
+        std::string label = classNames[detection->class_id] + ": " +
                             std::to_string(static_cast<int>(detection->conf * 100)) + "%";
         int baseLine = 0;
         cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX, fontSize, textThickness, &baseLine);
@@ -287,6 +288,9 @@ env{Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ONNX_DETECTION")}, sessionOptions{Ort::
  
      // Retrieve available execution providers (e.g., CPU, CUDA)
      std::vector<std::string> availableProviders = Ort::GetAvailableProviders();
+     for(const auto& provider : availableProviders) {
+         std::cout << provider << std::endl;
+     }
      auto cudaAvailable = std::find(availableProviders.begin(), availableProviders.end(), "CUDAExecutionProvider");
      OrtCUDAProviderOptions cudaOption;
  
@@ -315,16 +319,28 @@ env{Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ONNX_DETECTION")}, sessionOptions{Ort::
      Ort::TypeInfo inputTypeInfo = session.GetInputTypeInfo(0);
      std::vector<int64_t> inputTensorShapeVec = inputTypeInfo.GetTensorTypeAndShapeInfo().GetShape();
      isDynamicInputShape = (inputTensorShapeVec.size() >= 4) && (inputTensorShapeVec[2] == -1 && inputTensorShapeVec[3] == -1); // Check for dynamic dimensions
- 
-     // Allocate and store input node names
-     auto input_name = session.GetInputNameAllocated(0, allocator);
-     inputNodeNameAllocatedStrings.push_back(std::move(input_name));
-     inputNames.push_back(inputNodeNameAllocatedStrings.back().get());
- 
-     // Allocate and store output node names
-     auto output_name = session.GetOutputNameAllocated(0, allocator);
-     outputNodeNameAllocatedStrings.push_back(std::move(output_name));
-     outputNames.push_back(outputNodeNameAllocatedStrings.back().get());
+     
+    // Allocate and store input node names
+     #if ONNXRUNTIME_VERSION <= 11
+        auto input_name = session.GetInputName(0, allocator);
+        inputNodeNameAllocatedStrings.push_back(input_name);
+        inputNames.push_back(inputNodeNameAllocatedStrings.back());
+    
+        // Allocate and store output node names
+        auto output_name = session.GetOutputName(0, allocator);
+        outputNodeNameAllocatedStrings.push_back(output_name);
+        outputNames.push_back(outputNodeNameAllocatedStrings.back());
+    #else
+        auto input_name = session.GetInputNameAllocated(0, allocator);
+        inputNodeNameAllocatedStrings.push_back(std::move(input_name));
+        inputNames.push_back(inputNodeNameAllocatedStrings.back().get());
+    
+        // Allocate and store output node names
+        auto output_name = session.GetOutputNameAllocated(0, allocator);
+        outputNodeNameAllocatedStrings.push_back(std::move(output_name));
+        outputNames.push_back(outputNodeNameAllocatedStrings.back().get());
+    #endif
+     
  
      // Set the expected input image shape based on the model's input tensor
      if (inputTensorShapeVec.size() >= 4) {
@@ -363,13 +379,15 @@ cv::Mat YOLO11Detector::preprocess(const cv::Mat &image, float *&blob, std::vect
 }
 
 bool YOLO11Detector::postprocess(
+    
     const cv::Size &originalImageSize,
     const cv::Size &resizedImageShape,
-    std::vector<Detection> &detections,
+    std::vector<detectiondata::Detection> &detections,
     const std::vector<Ort::Value> &outputTensors,
     float confThreshold,
     float iouThreshold)
 {
+
     ScopedTimer timer("postprocessing");
     const float* rawOutput = outputTensors[0].GetTensorData<float>();
     const std::vector<int64_t> outputShape = outputTensors[0].GetTensorTypeAndShapeInfo().GetShape();
@@ -382,14 +400,15 @@ bool YOLO11Detector::postprocess(
     if (numClasses <= 0) {
         return false;
     }
-    std::vector<BoundingBox> boxes;
+    std::vector<detectiondata::BoundingBox> boxes;
     boxes.reserve(num_detections);
     std::vector<float> confs;
     confs.reserve(num_detections);
     std::vector<int> classIds;
     classIds.reserve(num_detections);
-    std::vector<BoundingBox> nms_boxes;
+    std::vector<detectiondata::BoundingBox> nms_boxes;
     nms_boxes.reserve(num_detections);
+    std::vector<detectiondata::NormalizedBoundingBox> normalized_boxes;
     const float* ptr = rawOutput;
     for (size_t d = 0; d < num_detections; ++d) {
         float centerX = ptr[0 * num_detections + d];
@@ -408,22 +427,28 @@ bool YOLO11Detector::postprocess(
         if (maxScore > confThreshold) {
             float left = centerX - width / 2.0f;
             float top = centerY - height / 2.0f;
-            BoundingBox scaledBox = yolo_utils::scaleCoords(
+            detectiondata::BoundingBox scaledBox = yolo_utils::scaleCoords(
                 resizedImageShape,
-                BoundingBox(left, top, width, height),
+                detectiondata::BoundingBox(left, top, width, height),
                 originalImageSize,
                 true
             );
-            BoundingBox roundedBox;
+            detectiondata::BoundingBox roundedBox;
             roundedBox.x = std::round(scaledBox.x);
             roundedBox.y = std::round(scaledBox.y);
             roundedBox.width = std::round(scaledBox.width);
             roundedBox.height = std::round(scaledBox.height);
-            BoundingBox nmsBox = roundedBox;
+            detectiondata::NormalizedBoundingBox normalizedBox;
+            normalizedBox.x = scaledBox.x / static_cast<float>(originalImageSize.width);
+            normalizedBox.y = scaledBox.y / static_cast<float>(originalImageSize.height);
+            normalizedBox.width = scaledBox.width / static_cast<float>(originalImageSize.width);
+            normalizedBox.height = scaledBox.height / static_cast<float>(originalImageSize.height);
+            detectiondata::BoundingBox nmsBox = roundedBox;
             nmsBox.x += classId * 7680;
             nmsBox.y += classId * 7680;
             nms_boxes.emplace_back(nmsBox);
             boxes.emplace_back(roundedBox);
+            normalized_boxes.emplace_back(normalizedBox);
             confs.emplace_back(maxScore);
             classIds.emplace_back(classId);
         }
@@ -432,8 +457,9 @@ bool YOLO11Detector::postprocess(
     yolo_utils::NMSBoxes(nms_boxes, confs, confThreshold, iouThreshold, indices);
     detections.reserve(indices.size());
     for (const int idx : indices) {
-        detections.emplace_back(Detection{
+        detections.emplace_back(detectiondata::Detection{
             boxes[idx],
+            normalized_boxes[idx],
             confs[idx],
             classIds[idx]
         });
@@ -442,7 +468,8 @@ bool YOLO11Detector::postprocess(
     return true;
 }
 
-bool YOLO11Detector::detect(const cv::Mat& image, std::vector<Detection> &detections, float confThreshold, float iouThreshold) {
+bool YOLO11Detector::detect(const cv::Mat& image, std::vector<detectiondata::Detection> &detections, float confThreshold, float iouThreshold) {
+
     ScopedTimer timer("Overall detection");
     float* blobPtr = nullptr;
     std::vector<int64_t> inputTensorShape = {1, 3, inputImageShape.height, inputImageShape.width};

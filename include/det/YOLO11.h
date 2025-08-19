@@ -29,6 +29,7 @@ const float IOU_THRESHOLD = 0.45f;
  * @namespace yolo_utils
  * @brief Namespace containing utility functions for the YOLO11Detector.
  */
+
 namespace yolo_utils {
 
     template <typename T>
@@ -55,10 +56,10 @@ namespace yolo_utils {
                         bool scaleUp = true,
                         int stride = 32);
     
-    BoundingBox scaleCoords(const cv::Size &imageShape, BoundingBox coords,
+    detectiondata::BoundingBox scaleCoords(const cv::Size &imageShape, detectiondata::BoundingBox coords,
                             const cv::Size &imageOriginalShape, bool p_Clip);
 
-    void NMSBoxes(const std::vector<BoundingBox>& boundingBoxes,
+    void NMSBoxes(const std::vector<detectiondata::BoundingBox>& boundingBoxes,
                 const std::vector<float>& scores,
                 float scoreThreshold,
                 float nmsThreshold,
@@ -66,10 +67,10 @@ namespace yolo_utils {
 
     inline std::vector<cv::Scalar> generateColors(const std::vector<std::string> &classNames, int seed = 42);
 
-    void drawBoundingBox(cv::Mat &image, const std::vector<Detection> &detections,
+    void drawBoundingBox(cv::Mat &image, const std::vector<detectiondata::Detection> &detections,
                                 const std::vector<std::string> &classNames, const std::vector<cv::Scalar> &colors);
 
-    void drawBoundingBoxMask(cv::Mat &image, const std::vector<Detection> &detections,
+    void drawBoundingBoxMask(cv::Mat &image, const std::vector<detectiondata::Detection> &detections,
                                     const std::vector<std::string> &classNames, const std::vector<cv::Scalar> &classColors,
                                     float maskAlpha = 0.4f);
 }
@@ -96,7 +97,7 @@ namespace yolo_utils {
          * @param iouThreshold IoU threshold for Non-Maximum Suppression (default is 0.45).
          * @return std::vector<Detection> Vector of detections.
          */
-        bool detect(const cv::Mat &image, std::vector<Detection> &detections, float confThreshold = 0.4f, float iouThreshold = 0.45f);
+        bool detect(const cv::Mat &image, std::vector<detectiondata::Detection> &detections, float confThreshold = 0.4f, float iouThreshold = 0.45f);
         
         /**
          * @brief Draws bounding boxes on the image based on detections.
@@ -104,7 +105,7 @@ namespace yolo_utils {
          * @param image Image on which to draw.
          * @param detections Vector of detections.
          */
-        void drawBoundingBox(cv::Mat &image, const std::vector<Detection> &detections) const {
+        void drawBoundingBox(cv::Mat &image, const std::vector<detectiondata::Detection> &detections) const {
             yolo_utils::drawBoundingBox(image, detections, classNames, classColors);
         }
         
@@ -115,7 +116,7 @@ namespace yolo_utils {
          * @param detections Vector of detections.
          * @param maskAlpha Alpha value for mask transparency (default is 0.4).
          */
-        void drawBoundingBoxMask(cv::Mat &image, const std::vector<Detection> &detections, float maskAlpha = 0.4f) const {
+        void drawBoundingBoxMask(cv::Mat &image, const std::vector<detectiondata::Detection> &detections, float maskAlpha = 0.4f) const {
             yolo_utils::drawBoundingBoxMask(image, detections, classNames, classColors, maskAlpha);
         }
     
@@ -125,11 +126,17 @@ namespace yolo_utils {
         Ort::Session session{nullptr};                 // ONNX Runtime session for running inference
         bool isDynamicInputShape{};                    // Flag indicating if input shape is dynamic
         cv::Size inputImageShape;                      // Expected input image shape for the model
-    
+
+        #if ONNXRUNTIME_VERSION <= 11
+            std::vector<const char *> inputNodeNameAllocatedStrings;
+            std::vector<const char *> outputNodeNameAllocatedStrings;
+        #else
+            std::vector<Ort::AllocatedStringPtr> inputNodeNameAllocatedStrings;
+            std::vector<Ort::AllocatedStringPtr> outputNodeNameAllocatedStrings;
+        #endif
         // Vectors to hold allocated input and output node names
-        std::vector<Ort::AllocatedStringPtr> inputNodeNameAllocatedStrings;
+       
         std::vector<const char *> inputNames;
-        std::vector<Ort::AllocatedStringPtr> outputNodeNameAllocatedStrings;
         std::vector<const char *> outputNames;
     
         size_t numInputNodes, numOutputNodes;          // Number of input and output nodes in the model
@@ -157,7 +164,7 @@ namespace yolo_utils {
          * @param iouThreshold IoU threshold for Non-Maximum Suppression.
          * @return std::vector<Detection> Vector of detections.
          */
-        bool postprocess(const cv::Size &originalImageSize, const cv::Size &resizedImageShape, std::vector<Detection> &detections,
+        bool postprocess(const cv::Size &originalImageSize, const cv::Size &resizedImageShape, std::vector<detectiondata::Detection> &detections,
                                           const std::vector<Ort::Value> &outputTensors,
                                           float confThreshold, float iouThreshold);
         

@@ -32,14 +32,13 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <chrono>
 #include <random>
 #include <unordered_map>
 #include <thread>
 
 // Include debug and custom ScopedTimer tools for performance measurement
-#include "tools/Debug.hpp"
-#include "tools/ScopedTimer.hpp"
+#include "Debug.hpp"
+#include "ScopedTimer.hpp"
 
 
 /**
