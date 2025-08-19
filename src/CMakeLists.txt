@@ -4,8 +4,6 @@ project(ObjectDetectionONNX VERSION 1.0
                   DESCRIPTION "Object Detection ONNX Module"
                   LANGUAGES CXX)
 
-# add_compile_definitions("SOURCE_ROOT=${CMAKE_CURRENT_LIST_DIR}/../../")
-
 ## Libraries setup
 
 set(OBJECT_DETECTION_ONNX_SOURCES

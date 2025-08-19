@@ -8,10 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ONNX Runtime
 set(ONNXRUNTIME_VERSION "21")
-set(ONNXRUNTIME_DIR "/home/essam/dev/libs/onnx/onnxruntime-linux-x64-gpu-1.21.0")
+set(ONNXRUNTIME_DIR "/home/imessam/dev/libs/onnx/onnxruntime-linux-x64-gpu-1.21.0")
 message(STATUS "ONNXRUNTIME_DIR: ${ONNXRUNTIME_DIR}")
 include_directories("${ONNXRUNTIME_DIR}/include")
 add_compile_definitions("ONNXRUNTIME_VERSION=${ONNXRUNTIME_VERSION}")
+# !ONNX Runtime
 
 # CUDA
 set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda")
