@@ -61,8 +61,9 @@
 // #include "det/YOLO9.hpp"
 // #include "det/YOLO8.hpp"
 // #include "det/YOLO10.hpp"
-#include "YOLO11.h"
+// #include "YOLO11.h"
 // #include "det/YOLO12.hpp" 
+#include "YOLO.h"
 
 
 // Include the bounded queue
@@ -92,7 +93,7 @@ int main()
 
     // Initialize YOLO detector
     // YOLO9Detector detector(modelPath, labelsPath, isGPU);
-    YOLO11Detector detector(modelPath, labelsPath, isGPU);
+    YOLODetector detector(modelPath, labelsPath, isGPU);
 
 
     // Open video capture

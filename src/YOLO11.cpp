@@ -364,7 +364,9 @@ env{Ort::Env(ORT_LOGGING_LEVEL_WARNING, "ONNX_DETECTION")}, sessionOptions{Ort::
 cv::Mat YOLO11Detector::preprocess(const cv::Mat &image, float *&blob, std::vector<int64_t> &inputTensorShape) {
     ScopedTimer timer("preprocessing");
     cv::Mat resizedImage;
-    yolo_utils::letterBox(image, resizedImage, inputImageShape, cv::Scalar(114, 114, 114), isDynamicInputShape, false, true, 32);
+    cv::Mat rgbImage;
+    cv::cvtColor(image, rgbImage, cv::COLOR_BGR2RGB);
+    yolo_utils::letterBox(rgbImage, resizedImage, inputImageShape, cv::Scalar(114, 114, 114), isDynamicInputShape, false, true, 32);
     inputTensorShape[2] = resizedImage.rows;
     inputTensorShape[3] = resizedImage.cols;
     resizedImage.convertTo(resizedImage, CV_32FC3, 1 / 255.0f);
@@ -438,14 +440,17 @@ bool YOLO11Detector::postprocess(
             roundedBox.y = std::round(scaledBox.y);
             roundedBox.width = std::round(scaledBox.width);
             roundedBox.height = std::round(scaledBox.height);
+
             detectiondata::NormalizedBoundingBox normalizedBox;
             normalizedBox.x = scaledBox.x / static_cast<float>(originalImageSize.width);
             normalizedBox.y = scaledBox.y / static_cast<float>(originalImageSize.height);
             normalizedBox.width = scaledBox.width / static_cast<float>(originalImageSize.width);
             normalizedBox.height = scaledBox.height / static_cast<float>(originalImageSize.height);
+            
             detectiondata::BoundingBox nmsBox = roundedBox;
             nmsBox.x += classId * 7680;
             nmsBox.y += classId * 7680;
+
             nms_boxes.emplace_back(nmsBox);
             boxes.emplace_back(roundedBox);
             normalized_boxes.emplace_back(normalizedBox);
@@ -494,6 +499,6 @@ bool YOLO11Detector::detect(const cv::Mat& image, std::vector<detectiondata::Det
         numOutputNodes
     );
     cv::Size resizedImageShape(static_cast<int>(inputTensorShape[3]), static_cast<int>(inputTensorShape[2]));
-    postprocess(image.size(), resizedImageShape, detections, outputTensors, confThreshold, iouThreshold);
-    return true;
+    return postprocess(image.size(), resizedImageShape, detections, outputTensors, confThreshold, iouThreshold);
+    // return true;
 }

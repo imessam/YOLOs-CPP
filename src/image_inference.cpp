@@ -47,7 +47,11 @@
 // #include "det/YOLO9.hpp"  // Uncomment for YOLOv9
 // #include "det/YOLO10.hpp" // Uncomment for YOLOv10
 // #include "det/YOLO11.hpp" // Uncomment for YOLOv11
-#include "YOLO12.hpp" // Uncomment for YOLOv12
+// #include "YOLO12.hpp" // Uncomment for YOLOv12
+
+#include "YOLO.h"
+
+// #include "YOLO11.h"
 
 
 
@@ -70,7 +74,7 @@ int main(){
     // const std::string modelPath = "../models/yolo10n.onnx"; // YOLOv10 
     // const std::string modelPath = "../quantized_models/yolo10n_uint8.onnx"; // Quantized YOLOv10
     // const std::string modelPath = "../models/yolo11n.onnx"; // YOLOv11 
-    const std::string modelPath = "../models/yolo12n.onnx"; // YOLOv12 
+    const std::string modelPath = "../models/yolo11n.onnx"; // YOLOv12 
 
 
 
@@ -82,7 +86,7 @@ int main(){
     // YOLO9Detector detector(modelPath, labelsPath, isGPU); // Uncomment for YOLOv9
     // YOLO10Detector detector(modelPath, labelsPath, isGPU); // Uncomment for YOLOv10
     // YOLO11Detector detector(modelPath, labelsPath, isGPU); // Uncomment for YOLOv11
-    YOLO12Detector detector(modelPath, labelsPath, isGPU); // Uncomment for YOLOv12
+    YOLODetector detector(modelPath, labelsPath, isGPU); // Uncomment for YOLOv12
 
 
     // Load an image
@@ -97,7 +101,8 @@ int main(){
 
     // Detect objects in the image and measure execution time
     auto start = std::chrono::high_resolution_clock::now();
-    std::vector<Detection> results = detector.detect(image);
+    std::vector<detectiondata::Detection> results; 
+    detector.detect(image, results);
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::high_resolution_clock::now() - start);
 
