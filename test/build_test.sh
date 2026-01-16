@@ -33,91 +33,42 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
 fi
 
-# Detect platform and architecture
+PROJECT_ROOT=$(cd "${CURRENT_DIR}/.." && pwd)
+
+# Function to setup ONNX Runtime using the centralized script
+setup_dependencies() {
+    echo "Ensuring ONNX Runtime is set up..."
+    if [ -f "${PROJECT_ROOT}/scripts/setup_onnxruntime.sh" ]; then
+        bash "${PROJECT_ROOT}/scripts/setup_onnxruntime.sh" "${ONNXRUNTIME_VERSION}" "${ONNXRUNTIME_GPU}"
+    else
+        echo "Error: scripts/setup_onnxruntime.sh not found."
+        exit 1
+    fi
+}
+
+# Determine the expected ONNX Runtime directory name (must match setup_onnxruntime.sh)
 platform=$(uname -s)
 architecture=$(uname -m)
 
 case "$platform" in
-Darwin*)
-    ONNXRUNTIME_PLATFORM="osx"
-	ONNXRUNTIME_ARCHIVE_EXTENSION="tgz"
-    ;;
-Linux*) 
-    ONNXRUNTIME_PLATFORM="linux"
-	ONNXRUNTIME_ARCHIVE_EXTENSION="tgz"
-    ;;
-MINGW*) 
-    ONNXRUNTIME_PLATFORM="win"
-	ONNXRUNTIME_ARCHIVE_EXTENSION="zip"
-    ;;
-*)
-    echo "Unsupported platform: $platform"
-    exit 1
-    ;;
+    Darwin*) ONNXRUNTIME_PLATFORM="osx" ;;
+    Linux*)  ONNXRUNTIME_PLATFORM="linux" ;;
+    MINGW*)  ONNXRUNTIME_PLATFORM="win" ;;
+    *) echo "Unsupported platform: $platform"; exit 1 ;;
 esac
 
-# Determine ONNX Runtime architecture
 case "$architecture" in
-aarch64|arm64)
-    ONNXRUNTIME_ARCH="aarch64"
-    ;;
-x86_64)
-    ONNXRUNTIME_ARCH="x64"
-    ;;
-arm*)
-    ONNXRUNTIME_ARCH="arm"
-    ;;
-i*86)
-    ONNXRUNTIME_ARCH="x86"
-    ;;
-*)
-    echo "Unsupported architecture: $architecture"
-    exit 1
-    ;;
+    aarch64|arm64) ONNXRUNTIME_ARCH="aarch64" ;;
+    x86_64) ONNXRUNTIME_ARCH="x64" ;;
+    *) echo "Unsupported architecture: $architecture"; exit 1 ;;
 esac
 
-# Set the correct ONNX Runtime download filename
-ONNXRUNTIME_FILE="onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_ARCH}"
-ONNXRUNTIME_DIR="${CURRENT_DIR}/onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_ARCH}"
-
+ONNXRUNTIME_DIR_NAME="onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_ARCH}"
 if [[ "$ONNXRUNTIME_GPU" -eq 1 ]]; then
-    ONNXRUNTIME_FILE="${ONNXRUNTIME_FILE}-gpu"
-    ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}-gpu"
+    ONNXRUNTIME_DIR_NAME="${ONNXRUNTIME_DIR_NAME}-gpu"
 fi
-
-ONNXRUNTIME_FILE="${ONNXRUNTIME_FILE}-${ONNXRUNTIME_VERSION}.${ONNXRUNTIME_ARCHIVE_EXTENSION}"
-ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}-${ONNXRUNTIME_VERSION}"
-ONNXRUNTIME_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ONNXRUNTIME_FILE}"
-
-# Function to download and extract ONNX Runtime
-download_onnxruntime() {
-    echo "Downloading ONNX Runtime from $ONNXRUNTIME_URL ..."
-    
-    if ! curl -L -C - -o "${ONNXRUNTIME_FILE}" "$ONNXRUNTIME_URL"; then
-        echo "Error: Failed to download ONNX Runtime."
-        exit 1
-    fi
-
-    echo "Extracting ONNX Runtime ..."
-	if [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "tgz" ]]; then
-		if ! tar -zxvf "${ONNXRUNTIME_FILE}" -C "$CURRENT_DIR"; then
-			echo "Error: Failed to extract ONNX Runtime."
-			exit 1
-		fi
-	elif [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "zip" ]]; then
-		if ! unzip "${ONNXRUNTIME_FILE}" -d "$CURRENT_DIR"; then
-			echo "Error: Failed to extract ONNX Runtime."
-			exit 1
-		fi
-	else
-		echo "Error: Failed to extract ONNX Runtime."
-		exit 1
-	fi
-
-    rm -f "${ONNXRUNTIME_FILE}"
-}
-
-
+ONNXRUNTIME_DIR_NAME="${ONNXRUNTIME_DIR_NAME}-${ONNXRUNTIME_VERSION}"
+ONNXRUNTIME_DIR="${PROJECT_ROOT}/${ONNXRUNTIME_DIR_NAME}"
 
 # Function to build the project
 build_project() {
@@ -129,21 +80,19 @@ build_project() {
     cd "$build_dir"
 
     echo "Configuring CMake with build type: $build_type ..."
-    cmake .. -D ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}" -DtestTask="${TEST_TASK}" -DCMAKE_BUILD_TYPE="$build_type" -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=native"
+    echo "Using ONNX Runtime from: ${ONNXRUNTIME_DIR}"
+    
+    cmake .. -D ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}" \
+             -DtestTask="${TEST_TASK}" \
+             -DCMAKE_BUILD_TYPE="$build_type" \
+             -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=native"
 
-    echo "Building project incrementally ..."
-    cmake --build . -- -j$(nproc)  # Parallel build using available CPU cores
+    echo "Building tests incrementally ..."
+    cmake --build . -- -j$(nproc)
 }
 
-
-
 # Main script execution
-if [ ! -d "$ONNXRUNTIME_DIR" ]; then
-    download_onnxruntime
-else
-    echo "ONNX Runtime already exists. Skipping download."
-fi
-
+setup_dependencies
 build_project "Release"
 
-echo "Build completed successfully."
+echo "Test build completed successfully."

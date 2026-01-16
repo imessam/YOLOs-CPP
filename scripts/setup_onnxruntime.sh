@@ -1,8 +1,10 @@
 #!/bin/bash
 
+# setup_onnxruntime.sh - Downloads and extracts ONNX Runtime for the current platform
+
 set -euo pipefail
 
-CURRENT_DIR=$(cd "$(dirname "$0")" && pwd)
+PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 
 # Default values
 ONNXRUNTIME_VERSION="${1:-1.20.1}"
@@ -12,7 +14,7 @@ ONNXRUNTIME_GPU="${2:-0}"
 usage() {
     echo "Usage: $0 [ONNXRUNTIME_VERSION] [ONNXRUNTIME_GPU]"
     echo
-    echo "This script downloads ONNX Runtime for the current platform and architecture and builds YOLOs-CPP."
+    echo "This script downloads ONNX Runtime for the current platform and architecture."
     echo
     echo "Arguments:"
     echo "  ONNXRUNTIME_VERSION   Version of ONNX Runtime to download (default: 1.20.1)."
@@ -37,15 +39,15 @@ architecture=$(uname -m)
 case "$platform" in
 Darwin*)
     ONNXRUNTIME_PLATFORM="osx"
-	ONNXRUNTIME_ARCHIVE_EXTENSION="tgz"
+    ONNXRUNTIME_ARCHIVE_EXTENSION="tgz"
     ;;
 Linux*) 
     ONNXRUNTIME_PLATFORM="linux"
-	ONNXRUNTIME_ARCHIVE_EXTENSION="tgz"
+    ONNXRUNTIME_ARCHIVE_EXTENSION="tgz"
     ;;
 MINGW*) 
     ONNXRUNTIME_PLATFORM="win"
-	ONNXRUNTIME_ARCHIVE_EXTENSION="zip"
+    ONNXRUNTIME_ARCHIVE_EXTENSION="zip"
     ;;
 *)
     echo "Unsupported platform: $platform"
@@ -75,19 +77,27 @@ esac
 
 # Set the correct ONNX Runtime download filename
 ONNXRUNTIME_FILE="onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_ARCH}"
-ONNXRUNTIME_DIR="${CURRENT_DIR}/onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_ARCH}"
+ONNXRUNTIME_DIR_NAME="onnxruntime-${ONNXRUNTIME_PLATFORM}-${ONNXRUNTIME_ARCH}"
 
 if [[ "$ONNXRUNTIME_GPU" -eq 1 ]]; then
     ONNXRUNTIME_FILE="${ONNXRUNTIME_FILE}-gpu"
-    ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}-gpu"
+    ONNXRUNTIME_DIR_NAME="${ONNXRUNTIME_DIR_NAME}-gpu"
 fi
 
 ONNXRUNTIME_FILE="${ONNXRUNTIME_FILE}-${ONNXRUNTIME_VERSION}.${ONNXRUNTIME_ARCHIVE_EXTENSION}"
-ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}-${ONNXRUNTIME_VERSION}"
+ONNXRUNTIME_DIR_NAME="${ONNXRUNTIME_DIR_NAME}-${ONNXRUNTIME_VERSION}"
 ONNXRUNTIME_URL="https://github.com/microsoft/onnxruntime/releases/download/v${ONNXRUNTIME_VERSION}/${ONNXRUNTIME_FILE}"
+
+# Absolute path for extraction
+ONNXRUNTIME_FULL_PATH="${PROJECT_ROOT}/${ONNXRUNTIME_DIR_NAME}"
 
 # Function to download and extract ONNX Runtime
 download_onnxruntime() {
+    if [ -d "$ONNXRUNTIME_FULL_PATH" ]; then
+        echo "ONNX Runtime already exists at $ONNXRUNTIME_FULL_PATH. Skipping download."
+        return 0
+    fi
+
     echo "Downloading ONNX Runtime from $ONNXRUNTIME_URL ..."
     
     if ! curl -L -C - -o "${ONNXRUNTIME_FILE}" "$ONNXRUNTIME_URL"; then
@@ -96,49 +106,20 @@ download_onnxruntime() {
     fi
 
     echo "Extracting ONNX Runtime ..."
-	if [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "tgz" ]]; then
-		if ! tar -zxvf "${ONNXRUNTIME_FILE}" -C "$CURRENT_DIR"; then
-			echo "Error: Failed to extract ONNX Runtime."
-			exit 1
-		fi
-	elif [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "zip" ]]; then
-		if ! unzip "${ONNXRUNTIME_FILE}" -d "$CURRENT_DIR"; then
-			echo "Error: Failed to extract ONNX Runtime."
-			exit 1
-		fi
-	else
-		echo "Error: Failed to extract ONNX Runtime."
-		exit 1
-	fi
+    if [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "tgz" ]]; then
+        if ! tar -zxvf "${ONNXRUNTIME_FILE}" -C "$PROJECT_ROOT"; then
+            echo "Error: Failed to extract ONNX Runtime."
+            exit 1
+        fi
+    elif [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "zip" ]]; then
+        if ! unzip "${ONNXRUNTIME_FILE}" -d "$PROJECT_ROOT"; then
+            echo "Error: Failed to extract ONNX Runtime."
+            exit 1
+        fi
+    fi
 
     rm -f "${ONNXRUNTIME_FILE}"
+    echo "ONNX Runtime setup complete in $ONNXRUNTIME_FULL_PATH"
 }
 
-# Function to build the project
-build_project() {
-    local build_type="${1:-Release}"
-    local build_dir="${CURRENT_DIR}/build"
-
-    # Ensure the build directory exists
-    mkdir -p "$build_dir"
-    cd "$build_dir"
-
-    echo "Configuring CMake with build type: $build_type ..."
-    cmake .. -D ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}" -DCMAKE_BUILD_TYPE="$build_type" -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=native"
-
-    echo "Building project incrementally ..."
-    cmake --build . -- -j$(nproc)  # Parallel build using available CPU cores
-}
-
-
-
-# Main script execution
-if [ ! -d "$ONNXRUNTIME_DIR" ]; then
-    download_onnxruntime
-else
-    echo "ONNX Runtime already exists. Skipping download."
-fi
-
-build_project "Release"
-
-echo "Build completed successfully."
+download_onnxruntime

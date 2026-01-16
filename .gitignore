@@ -9,7 +9,6 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 Makefile2
-*.cmake
 
 # Ignore compiled object files and binaries
 *.o

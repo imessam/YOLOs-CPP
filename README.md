@@ -22,10 +22,12 @@
 - **Backends**: ONNX Runtime for GPU/CPU acceleration
 - **Real-Time**: Optimized for real-time performance
 - **Cross-Platform**: Linux, Windows, macOS
-- **Easy Integration**: Modular headers and examples for C++ projects
+- **Modular Architecture**: Separate header/source files built as a static library (`yolo_ort_lib`)
+- **Easy Integration**: Well-organized headers and dedicated demo applications
 
 ## 🔄 Recent Updates
 
+- **[2026.01.16]**: Major refactoring: Header/Source separation, static library build, and project reorganization
 - **[2025.05.15]**: Classification support added
 - **[2025.03.16]**: Pose estimation support
 - **[2025.02.11]**: OBB support
@@ -44,14 +46,14 @@ cd YOLOs-CPP
 ### Build
 
 ```bash
-./build.sh
+./scripts/build.sh
 ```
 
 ### Run Inference
 
-- Image: `./run_image.sh`
-- Video: `./run_video.sh`
-- Camera: `./run_camera.sh`
+- Image: `./scripts/run_image.sh`
+- Video: `./scripts/run_video.sh`
+- Camera: `./scripts/run_camera.sh`
 
 ## Supported Models
 
