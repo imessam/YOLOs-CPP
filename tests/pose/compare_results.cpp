@@ -10,26 +10,26 @@
 #define STRING(x) #x
 #define XSTRING(x) STRING(x)
 
-using json = nlohmann::json;
+
 
 constexpr double CONF_ERROR_MARGIN = 0.1;  // ±0.1 difference allowed in confidence scores
 constexpr int KEYPOINT_ERROR_MARGIN = 10;  // ±10 pixels difference allowed in keypoint coordinates
 constexpr int BBOX_ERROR_MARGIN = 50;     // +-50 pixels difference allowed in bounding box coordinates
 
-json read_json(const std::string& path) {
+nlohmann::json read_json(const std::string& path) {
     std::ifstream f(path);
     if (!f.is_open()) {
         throw std::runtime_error("File not found: " + path);
     }
-    json j;
+   nlohmann::json j;
     f >> j;
     return j;
 }
 
 class ResultsFixture : public ::testing::Test {
 protected:
-    json results_ultralytics;
-    json results_cpp;
+   nlohmann::json results_ultralytics;
+   nlohmann::json results_cpp;
     std::string basePath = XSTRING(BASE_PATH_POSE);
 
     void SetUp() override {
@@ -123,14 +123,14 @@ TEST_F(ResultsFixture, ComparePosesCount) {
 
         for (size_t i = 0; i < ultra_results.size(); ++i) {
 
-            auto poses_ultra = ultra_results[i].value("inference_results", json::array());
+            auto poses_ultra = ultra_results[i].value("inference_results",nlohmann::json::array());
             std::string image_path = ultra_results[i].value("image_path", "");
 
             for (size_t j = 0; j < cpp_results.size(); ++j) {
 
                 if (cpp_results[j].value("image_path", "") == image_path) {
 
-                    auto poses_cpp = cpp_results[j].value("inference_results", json::array());
+                    auto poses_cpp = cpp_results[j].value("inference_results",nlohmann::json::array());
                    
                     ASSERT_EQ(poses_ultra.size(), poses_cpp.size())
                         << "Number of poses mismatch for model " << model_name << ", image: " << image_path;
@@ -153,7 +153,7 @@ TEST_F(ResultsFixture, ComparePoses) {
 
         for (size_t i = 0; i < ultra_results.size(); ++i) {
 
-            auto poses_ultra = ultra_results[i].value("inference_results", json::array());
+            auto poses_ultra = ultra_results[i].value("inference_results",nlohmann::json::array());
 
             std::string image_path = ultra_results[i].value("image_path", "");
 
@@ -161,7 +161,7 @@ TEST_F(ResultsFixture, ComparePoses) {
     
                 if (cpp_results[j].value("image_path", "") == image_path) {
                     
-                    auto poses_cpp = cpp_results[j].value("inference_results", json::array());
+                    auto poses_cpp = cpp_results[j].value("inference_results",nlohmann::json::array());
 
                     for (size_t j = 0; j < poses_ultra.size(); ++j) {
 

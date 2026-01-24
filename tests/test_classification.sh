@@ -65,7 +65,7 @@ cd "$SCRIPT_DIR"
 ./build_test.sh 1
 
 print_header "Running C++ Inference"
-cd build
+cd "${PROJECT_ROOT}/build/tests"
 ./inference_classification_cpp cpu
 
 print_header "Running Comparison Tests"

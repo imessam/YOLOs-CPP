@@ -5,112 +5,42 @@ cmake_minimum_required(VERSION 3.16)
 project(yolos_cpp_tests VERSION 2.0.0 LANGUAGES CXX)
 
 # ============================================================================
-# C++ Standard
+# Dependencies (OpenCV, ONNX Runtime, nlohmann_json, GoogleTest)
 # ============================================================================
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+include(../cmake/common.cmake)
+
+# Match library variable used in parent
+set(ONNXRUNTIME_LIB ${ONNXRUNTIME_LIBRARIES})
+
+# Support standalone build
+if(NOT TARGET yolos)
+    message(STATUS "YOLOs-CPP: Building tests in standalone mode")
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../src ${CMAKE_CURRENT_BINARY_DIR}/yolos_lib)
+    
+    # Standard link libraries for yolos if running standalone
+    target_link_libraries(yolos PUBLIC 
+        ${OpenCV_LIBS}
+        Threads::Threads
+    )
+    target_link_libraries(yolos PRIVATE 
+        ${ONNXRUNTIME_LIB}
+    )
+else()
+    message(STATUS "YOLOs-CPP: Building tests in integrated mode")
+endif()
 
 # ============================================================================
 # Base Path Definitions
 # ============================================================================
-add_compile_definitions("BASE_PATH=${CMAKE_SOURCE_DIR}/")
-add_compile_definitions("BASE_PATH_DETECTION=${CMAKE_SOURCE_DIR}/detection/")
-add_compile_definitions("BASE_PATH_CLASSIFICATION=${CMAKE_SOURCE_DIR}/classification/")
-add_compile_definitions("BASE_PATH_SEGMENTATION=${CMAKE_SOURCE_DIR}/segmentation/")
-add_compile_definitions("BASE_PATH_POSE=${CMAKE_SOURCE_DIR}/pose/")
-add_compile_definitions("BASE_PATH_OBB=${CMAKE_SOURCE_DIR}/obb/")
+add_compile_definitions("BASE_PATH=${CMAKE_CURRENT_SOURCE_DIR}/")
+add_compile_definitions("BASE_PATH_DETECTION=${CMAKE_CURRENT_SOURCE_DIR}/detection/")
+add_compile_definitions("BASE_PATH_CLASSIFICATION=${CMAKE_CURRENT_SOURCE_DIR}/classification/")
+add_compile_definitions("BASE_PATH_SEGMENTATION=${CMAKE_CURRENT_SOURCE_DIR}/segmentation/")
+add_compile_definitions("BASE_PATH_POSE=${CMAKE_CURRENT_SOURCE_DIR}/pose/")
+add_compile_definitions("BASE_PATH_OBB=${CMAKE_CURRENT_SOURCE_DIR}/obb/")
 
-message(STATUS "Test Base Path: ${CMAKE_SOURCE_DIR}")
+message(STATUS "Test Base Path: ${CMAKE_CURRENT_SOURCE_DIR}")
 
-# ============================================================================
-# ONNX Runtime
-# ============================================================================
-if(NOT DEFINED ONNXRUNTIME_DIR)
-    # Platform-specific search paths
-    if(WIN32)
-        set(ONNXRUNTIME_SEARCH_PATHS
-            "${CMAKE_SOURCE_DIR}/onnxruntime-win-x64-1.20.1"
-            "${CMAKE_SOURCE_DIR}/onnxruntime-win-x64-gpu-1.20.1"
-            "${CMAKE_SOURCE_DIR}/../onnxruntime-win-x64-1.20.1"
-            "${CMAKE_SOURCE_DIR}/../onnxruntime-win-x64-gpu-1.20.1"
-        )
-    elseif(APPLE)
-        set(ONNXRUNTIME_SEARCH_PATHS
-            "${CMAKE_SOURCE_DIR}/onnxruntime-osx-arm64-1.20.1"
-            "${CMAKE_SOURCE_DIR}/onnxruntime-osx-x86_64-1.20.1"
-            "${CMAKE_SOURCE_DIR}/../onnxruntime-osx-arm64-1.20.1"
-            "${CMAKE_SOURCE_DIR}/../onnxruntime-osx-x86_64-1.20.1"
-        )
-    else()
-        set(ONNXRUNTIME_SEARCH_PATHS
-            "${CMAKE_SOURCE_DIR}/onnxruntime-linux-x64-1.20.1"
-            "${CMAKE_SOURCE_DIR}/onnxruntime-linux-x64-gpu-1.20.1"
-            "${CMAKE_SOURCE_DIR}/../onnxruntime-linux-x64-1.20.1"
-            "${CMAKE_SOURCE_DIR}/../onnxruntime-linux-x64-gpu-1.20.1"
-        )
-    endif()
-    
-    foreach(path ${ONNXRUNTIME_SEARCH_PATHS})
-        if(EXISTS "${path}/include/onnxruntime_cxx_api.h")
-            set(ONNXRUNTIME_DIR "${path}")
-            break()
-        endif()
-    endforeach()
-endif()
-
-if(NOT ONNXRUNTIME_DIR OR NOT EXISTS "${ONNXRUNTIME_DIR}/include")
-    message(FATAL_ERROR "ONNX Runtime not found. Set -DONNXRUNTIME_DIR=/path/to/onnxruntime")
-endif()
-
-message(STATUS "ONNX Runtime: ${ONNXRUNTIME_DIR}")
-
-# ============================================================================
-# Dependencies
-# ============================================================================
-find_package(OpenCV REQUIRED)
-message(STATUS "OpenCV: ${OpenCV_VERSION}")
-
-# nlohmann_json
-include(FetchContent)
-FetchContent_Declare(json 
-    URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_MakeAvailable(json)
-
-# GoogleTest
-FetchContent_Declare(googletest
-    URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
-enable_testing()
-include(GoogleTest)
-
-# Threading
-find_package(Threads REQUIRED)
-
-# ============================================================================
-# Include Directories
-# ============================================================================
-include_directories(
-    "${CMAKE_SOURCE_DIR}/../include"
-    "${ONNXRUNTIME_DIR}/include"
-)
-
-# ============================================================================
-# ONNX Runtime Library
-# ============================================================================
-if(UNIX AND NOT APPLE)
-    set(ONNXRUNTIME_LIB "${ONNXRUNTIME_DIR}/lib/libonnxruntime.so")
-elseif(APPLE)
-    set(ONNXRUNTIME_LIB "${ONNXRUNTIME_DIR}/lib/libonnxruntime.dylib")
-elseif(WIN32)
-    set(ONNXRUNTIME_LIB "${ONNXRUNTIME_DIR}/lib/onnxruntime.lib")
-endif()
 
 # ============================================================================
 # Test Task Selection
@@ -118,11 +48,11 @@ endif()
 option(testTask "Specify test task: 0=detection, 1=classification, 2=segmentation, 3=pose, 4=obb, 5=all" STRING)
 message(STATUS "Selected test task: ${testTask}")
 
-set(detection_path "${CMAKE_SOURCE_DIR}/detection")
-set(classification_path "${CMAKE_SOURCE_DIR}/classification")
-set(segmentation_path "${CMAKE_SOURCE_DIR}/segmentation")
-set(pose_path "${CMAKE_SOURCE_DIR}/pose")
-set(obb_path "${CMAKE_SOURCE_DIR}/obb")
+set(detection_path "${CMAKE_CURRENT_SOURCE_DIR}/detection")
+set(classification_path "${CMAKE_CURRENT_SOURCE_DIR}/classification")
+set(segmentation_path "${CMAKE_CURRENT_SOURCE_DIR}/segmentation")
+set(pose_path "${CMAKE_CURRENT_SOURCE_DIR}/pose")
+set(obb_path "${CMAKE_CURRENT_SOURCE_DIR}/obb")
 
 set(INFERENCE_EXES)
 set(TEST_EXES)
@@ -198,16 +128,10 @@ endif()
 foreach(target ${INFERENCE_EXES})
     message(STATUS "Configuring inference target: ${target}")
     
-    target_include_directories(${target} PRIVATE 
-        "${CMAKE_SOURCE_DIR}/../include"
-        "${ONNXRUNTIME_DIR}/include"
-    )
-    
     target_link_libraries(${target} PRIVATE
-        ${OpenCV_LIBS}
+        yolos
         ${ONNXRUNTIME_LIB}
         nlohmann_json::nlohmann_json
-        Threads::Threads
     )
     
     # Set RPATH

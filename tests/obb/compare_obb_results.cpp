@@ -9,7 +9,7 @@
 #define STRING(x) #x
 #define XSTRING(x) STRING(x)
 
-using json = nlohmann::json;
+
 
 constexpr double CONF_ERROR_MARGIN = 0.1;           // ±0.1 difference allowed in confidence scores
 constexpr double OBB_CENTER_ERROR_MARGIN = 50.0;   // ±50 pixels difference allowed in center coordinates
@@ -18,12 +18,12 @@ constexpr double OBB_ANGLE_ERROR_MARGIN = 0.2;     // ±0.2 radians difference a
 
 constexpr double PI = 3.14159265358979323846;
 
-json read_json(const std::string& path) {
+nlohmann::json read_json(const std::string& path) {
     std::ifstream f(path);
     if (!f.is_open()) {
         throw std::runtime_error("File not found: " + path);
     }
-    json j;
+   nlohmann::json j;
     f >> j;
     return j;
 }
@@ -94,8 +94,8 @@ bool obbsMatch(double cx1, double cy1, double w1, double h1, double angle1,
 
 class OBBResultsFixture : public ::testing::Test {
 protected:
-    json results_ultralytics;
-    json results_cpp;
+   nlohmann::json results_ultralytics;
+   nlohmann::json results_cpp;
     std::string basePath = XSTRING(BASE_PATH_OBB); // Base path defined in CMakeLists.txt
 
     void SetUp() override {
@@ -168,8 +168,8 @@ TEST_F(OBBResultsFixture, CompareOBBDetectionsCount) {
         auto& cpp_results = results_cpp[model_name]["results"];
 
         for (size_t i = 0; i < ultra_results.size(); ++i) {
-            auto detections_ultra = ultra_results[i].value("inference_results", json::array());
-            auto detections_cpp = cpp_results[i].value("inference_results", json::array());
+            auto detections_ultra = ultra_results[i].value("inference_results",nlohmann::json::array());
+            auto detections_cpp = cpp_results[i].value("inference_results",nlohmann::json::array());
 
             std::string image_path = ultra_results[i].value("image_path", "");
 
@@ -187,8 +187,8 @@ TEST_F(OBBResultsFixture, CompareOBBDetections) {
         auto& cpp_results = results_cpp[model_name]["results"];
 
         for (size_t i = 0; i < ultra_results.size(); ++i) {
-            auto detections_ultra = ultra_results[i].value("inference_results", json::array());
-            auto detections_cpp = cpp_results[i].value("inference_results", json::array());
+            auto detections_ultra = ultra_results[i].value("inference_results",nlohmann::json::array());
+            auto detections_cpp = cpp_results[i].value("inference_results",nlohmann::json::array());
 
             std::string image_path = ultra_results[i].value("image_path", "");
 

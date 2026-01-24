@@ -1,3 +1,4 @@
+#include <fstream>
 /**
  * @file inference_detection_cpp.cpp
  * @brief Detection inference test for YOLOs-CPP
@@ -19,8 +20,8 @@
 #define STRING(x) #x
 #define XSTRING(x) STRING(x)
 
-namespace fs = std::filesystem;
-using json = nlohmann::json;
+
+
 using namespace yolos::det;
 
 struct SingleInferenceResult {
@@ -44,7 +45,7 @@ struct Results {
 
 bool validatePaths(const std::unordered_map<std::string, std::string>& paths) {
     for (const auto& [key, path] : paths) {
-        if (!fs::exists(path)) {
+        if (!std::filesystem::exists(path)) {
             std::cerr << "Error: " << key << " path does not exist: " << path << std::endl;
             return false;
         }
@@ -54,7 +55,7 @@ bool validatePaths(const std::unordered_map<std::string, std::string>& paths) {
 }
 
 void loadInferenceConfig(const std::string& configFilePath, std::unordered_map<std::string, std::string>& config) {
-    if (!fs::exists(configFilePath)) {
+    if (!std::filesystem::exists(configFilePath)) {
         std::cerr << "Warning: Inference config file does not exist. Using default values." << std::endl;
         return;
     }
@@ -63,7 +64,7 @@ void loadInferenceConfig(const std::string& configFilePath, std::unordered_map<s
         std::cerr << "Warning: Could not open inference config file. Using default values." << std::endl;
         return;
     }
-    json jsonConfig;
+    nlohmann::json jsonConfig;
     file >> jsonConfig;
     if (jsonConfig.contains("conf")) {
         config["conf"] = std::to_string(jsonConfig["conf"].get<double>());
@@ -76,12 +77,12 @@ void loadInferenceConfig(const std::string& configFilePath, std::unordered_map<s
 }
 
 bool loadImages(const std::string& imagesPath, std::vector<std::string>& imageFiles) {
-    if (!fs::exists(imagesPath) || !fs::is_directory(imagesPath)) {
+    if (!std::filesystem::exists(imagesPath) || !std::filesystem::is_directory(imagesPath)) {
         std::cerr << "Error: Images path does not exist: " << imagesPath << std::endl;
         return false;
     }
     std::vector<std::string> validExtensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"};
-    for (const auto& entry : fs::directory_iterator(imagesPath)) {
+    for (const auto& entry : std::filesystem::directory_iterator(imagesPath)) {
         if (entry.is_regular_file()) {
             std::string ext = entry.path().extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -162,20 +163,20 @@ void runInference(const std::string& modelPath, const std::string& labelsPath,
 }
 
 void toJson(const std::unordered_map<std::string, Results>& results, 
-            const std::string& basePath, json& outputJson) {
+            const std::string& basePath, nlohmann::json& outputJson) {
     for (const auto& [modelName, result] : results) {
-        outputJson[modelName] = json();
+        outputJson[modelName] = nlohmann::json();
         outputJson[modelName]["weights_path"] = result.weightsPath.substr(basePath.length());
         outputJson[modelName]["task"] = result.task;
-        outputJson[modelName]["results"] = json::array();
+        outputJson[modelName]["results"] = nlohmann::json::array();
 
         for (const auto& [imagePath, inferenceResults] : result.inferenceResults) {
-            json imageResults;
+            nlohmann::json imageResults;
             imageResults["image_path"] = imagePath.substr(basePath.length());
-            imageResults["inference_results"] = json::array();
+            imageResults["inference_results"] = nlohmann::json::array();
 
             for (const auto& res : inferenceResults) {
-                json singleResult;
+                nlohmann::json singleResult;
                 singleResult["class_id"] = res.classId;
                 singleResult["confidence"] = res.conf;
                 singleResult["bbox"] = {
@@ -237,18 +238,18 @@ int main(int argc, char* argv[]) {
         {"iou", "0.50"}
     };
 
-    loadInferenceConfig(basePath + "inference_config.json", inferenceConfig);
+    loadInferenceConfig(basePath + "inference_config.nlohmann::json", inferenceConfig);
 
-    std::string resultsFilePath = resultsPath + "results_cpp.json";
-    if (fs::exists(resultsFilePath)) {
-        fs::remove(resultsFilePath);
+    std::string resultsFilePath = resultsPath + "results_cpp.nlohmann::json";
+    if (std::filesystem::exists(resultsFilePath)) {
+        std::filesystem::remove(resultsFilePath);
     }
 
     std::unordered_map<std::string, Results> allResults;
 
     for (const auto& model : models) {
         std::string modelPath = weightsPath + model + ".onnx";
-        if (!fs::exists(modelPath)) {
+        if (!std::filesystem::exists(modelPath)) {
             std::cerr << "Warning: Model not found, skipping: " << modelPath << std::endl;
             continue;
         }
@@ -262,7 +263,7 @@ int main(int argc, char* argv[]) {
         std::cout << "======== Completed: " << model << " ========\n" << std::endl;
     }
 
-    json outputJson;
+    nlohmann::json outputJson;
     toJson(allResults, basePath, outputJson);
     std::ofstream file(resultsFilePath);
     file << std::setw(2) << outputJson << std::endl;

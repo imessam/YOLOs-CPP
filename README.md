@@ -123,11 +123,11 @@ git clone https://github.com/Geekgineer/YOLOs-CPP.git
 cd YOLOs-CPP
 
 # Build (auto-downloads ONNX Runtime)
-./build.sh 1.20.1 0   # CPU build
-./build.sh 1.20.1 1   # GPU build (requires CUDA)
+./scripts/build.sh 1.20.1 0   # CPU build
+./scripts/build.sh 1.20.1 1   # GPU build (requires CUDA)
 
 # Run
-./build/image_inference models/yolo11n.onnx data/dog.jpg
+./build/demos/image_inference models/yolo11n.onnx data/dog.jpg
 ```
 
 <details>
@@ -265,8 +265,8 @@ Tested on Intel i7-12700H (CPU) / NVIDIA RTX 3060 (GPU), 640×640 input:
 <summary><strong>Run Your Own Benchmarks</strong></summary>
 
 ```bash
-cd benchmarks
-./auto_bench.sh 1.20.1 0 yolo11n,yolov8n,yolo26n
+cd scripts
+./run_benchmarks.sh 1.20.1 0 yolo11n,yolov8n,yolo26n
 ```
 
 Results are saved to `benchmarks/results/`.
@@ -279,22 +279,12 @@ Results are saved to `benchmarks/results/`.
 
 ```
 YOLOs-CPP/
-├── include/yolos/           # Core library
+├── include/yolos/           # Core library headers
 │   ├── core/                # Shared utilities
-│   │   ├── types.hpp        # Detection, Segmentation result types
-│   │   ├── preprocessing.hpp # Letterbox, normalization
-│   │   ├── nms.hpp          # Non-maximum suppression
-│   │   ├── drawing.hpp      # Visualization utilities
-│   │   └── version.hpp      # YOLO version detection
-│   ├── tasks/               # Task implementations
-│   │   ├── detection.hpp    # Object detection
-│   │   ├── segmentation.hpp # Instance segmentation
-│   │   ├── pose.hpp         # Pose estimation
-│   │   ├── obb.hpp          # Oriented bounding boxes
-│   │   └── classification.hpp
-│   └── yolos.hpp            # Main include (includes all)
-├── src/                     # Example applications
-├── examples/                # Task-specific examples
+│   └── tasks/               # Task implementations
+├── src/                     # Core library sources
+├── demos/                   # Demo applications
+├── scripts/                 # Build and utility scripts
 ├── tests/                   # Automated test suite
 ├── benchmarks/              # Performance benchmarking
 └── models/                  # Sample models & labels
@@ -320,9 +310,14 @@ YOLOs-CPP/
 YOLOs-CPP includes a comprehensive test suite that validates C++ inference against Ultralytics Python:
 
 ```bash
-cd tests
-./test_all.sh    # Run all tests
-./test_detection.sh  # Run detection tests only
+# Build with tests
+mkdir build && cd build
+cmake .. -DENABLE_TESTS=ON
+make -j$(nproc)
+
+# Run tests
+ctest --output-on-failure -L detection  # Run detection tests
+./scripts/run_test.sh 5                 # Run all via script
 ```
 
 | Task | Tests | Status |

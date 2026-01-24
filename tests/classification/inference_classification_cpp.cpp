@@ -1,3 +1,4 @@
+#include <fstream>
 /**
  * @file inference_classification_cpp.cpp
  * @brief Classification inference test for YOLOs-CPP
@@ -18,8 +19,8 @@
 #define STRING(x) #x
 #define XSTRING(x) STRING(x)
 
-namespace fs = std::filesystem;
-using json = nlohmann::json;
+
+
 using namespace yolos::cls;
 
 struct SingleInferenceResultCls {
@@ -36,7 +37,7 @@ struct ResultsCls {
 
 bool validatePaths(const std::unordered_map<std::string, std::string>& paths) {
     for (const auto& [key, path] : paths) {
-        if (!fs::exists(path)) {
+        if (!std::filesystem::exists(path)) {
             std::cerr << "Error: " << key << " path does not exist: " << path << std::endl;
             return false;
         }
@@ -46,12 +47,12 @@ bool validatePaths(const std::unordered_map<std::string, std::string>& paths) {
 }
 
 bool loadImages(const std::string& imagesPath, std::vector<std::string>& imageFiles) {
-    if (!fs::exists(imagesPath) || !fs::is_directory(imagesPath)) {
+    if (!std::filesystem::exists(imagesPath) || !std::filesystem::is_directory(imagesPath)) {
         std::cerr << "Error: Images path does not exist: " << imagesPath << std::endl;
         return false;
     }
     std::vector<std::string> validExtensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"};
-    for (const auto& entry : fs::directory_iterator(imagesPath)) {
+    for (const auto& entry : std::filesystem::directory_iterator(imagesPath)) {
         if (entry.is_regular_file()) {
             std::string ext = entry.path().extension().string();
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
@@ -64,8 +65,8 @@ bool loadImages(const std::string& imagesPath, std::vector<std::string>& imageFi
 }
 
 void findModels(const std::string& modelsDir, std::vector<std::string>& modelFiles) {
-    if (!fs::exists(modelsDir) || !fs::is_directory(modelsDir)) return;
-    for (const auto& entry : fs::directory_iterator(modelsDir)) {
+    if (!std::filesystem::exists(modelsDir) || !std::filesystem::is_directory(modelsDir)) return;
+    for (const auto& entry : std::filesystem::directory_iterator(modelsDir)) {
         if (entry.is_regular_file() && entry.path().extension() == ".onnx") {
             modelFiles.push_back(entry.path().string());
         }
@@ -108,20 +109,20 @@ void runInference(const std::string& modelPath, const std::string& labelsPath,
 }
 
 void toJson(const std::unordered_map<std::string, ResultsCls>& results,
-            const std::string& basePath, json& outputJson) {
+            const std::string& basePath, nlohmann::json& outputJson) {
     for (const auto& [modelName, result] : results) {
-        outputJson[modelName] = json();
+        outputJson[modelName] = nlohmann::json();
         outputJson[modelName]["weights_path"] = result.weightsPath.substr(basePath.length());
         outputJson[modelName]["task"] = result.task;
-        outputJson[modelName]["results"] = json::array();
+        outputJson[modelName]["results"] = nlohmann::json::array();
 
         for (const auto& [imagePath, inferenceResults] : result.inferenceResults) {
-            json imageResults;
+            nlohmann::json imageResults;
             imageResults["image_path"] = imagePath.substr(basePath.length());
-            imageResults["inference_results"] = json::array();
+            imageResults["inference_results"] = nlohmann::json::array();
 
             for (const auto& res : inferenceResults) {
-                json single;
+                nlohmann::json single;
                 single["class_id"] = res.classId;
                 single["confidence"] = res.conf;
                 single["class_name"] = res.className;
@@ -158,21 +159,21 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    if (!fs::exists(resultsPath)) fs::create_directories(resultsPath);
-    std::string resultsFilePath = resultsPath + "results_cpp.json";
-    if (fs::exists(resultsFilePath)) fs::remove(resultsFilePath);
+    if (!std::filesystem::exists(resultsPath)) std::filesystem::create_directories(resultsPath);
+    std::string resultsFilePath = resultsPath + "results_cpp.nlohmann::json";
+    if (std::filesystem::exists(resultsFilePath)) std::filesystem::remove(resultsFilePath);
 
     std::unordered_map<std::string, ResultsCls> allResults;
 
     for (const auto& modelPath : modelFiles) {
-        std::string modelName = fs::path(modelPath).stem().string();
+        std::string modelName = std::filesystem::path(modelPath).stem().string();
         allResults[modelName] = ResultsCls{modelPath, "classify", {}};
         
         std::cout << "\n======== Running: " << modelName << " ========" << std::endl;
         runInference(modelPath, labelsPath, imageFiles, isGPU, allResults[modelName].inferenceResults);
     }
 
-    json outputJson;
+    nlohmann::json outputJson;
     toJson(allResults, basePath, outputJson);
     std::ofstream file(resultsFilePath);
     file << std::setw(2) << outputJson << std::endl;

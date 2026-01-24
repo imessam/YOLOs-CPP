@@ -20,7 +20,7 @@ usage() {
     echo "Arguments:"
     echo "  ONNXRUNTIME_VERSION   Version of ONNX Runtime to download (default: 1.20.1)."
     echo "  ONNXRUNTIME_GPU       Whether to use GPU support (0 for CPU, 1 for GPU, default: 0)."
-    echo "  MODELS                Comma-separated list of models to test (default: yolo11n,yolov8n)."
+    echo "  MODELS                Comma-separated list of models to test (default: yolo11n,yolov8n,yolo26n)."
     echo "  EVAL_DATASET          Path to evaluation dataset folder (optional)."
     echo
     echo "Examples:"
@@ -68,6 +68,12 @@ aarch64|arm64)
 x86_64)
     ONNXRUNTIME_ARCH="x64"
     ;;
+aarch64|arm64)
+    ONNXRUNTIME_ARCH="aarch64"
+    ;;
+x86_64)
+    ONNXRUNTIME_ARCH="x64"
+    ;;
 arm*)
     ONNXRUNTIME_ARCH="arm"
     ;;
@@ -96,9 +102,7 @@ ONNXRUNTIME_URL="https://github.com/microsoft/onnxruntime/releases/download/v${O
 # Function to download and extract ONNX Runtime
 download_onnxruntime() {
     echo "Downloading ONNX Runtime from $ONNXRUNTIME_URL ..."
-    
     cd "$PROJECT_ROOT"
-    
     if ! curl -L -C - -o "${ONNXRUNTIME_FILE}" "$ONNXRUNTIME_URL"; then
         echo "Error: Failed to download ONNX Runtime."
         exit 1
@@ -106,44 +110,31 @@ download_onnxruntime() {
 
     echo "Extracting ONNX Runtime ..."
     if [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "tgz" ]]; then
-        if ! tar -zxvf "${ONNXRUNTIME_FILE}" -C "$PROJECT_ROOT"; then
-            echo "Error: Failed to extract ONNX Runtime."
-            exit 1
-        fi
-    elif [[ "${ONNXRUNTIME_ARCHIVE_EXTENSION}" = "zip" ]]; then
-        if ! unzip "${ONNXRUNTIME_FILE}" -d "$PROJECT_ROOT"; then
-            echo "Error: Failed to extract ONNX Runtime."
-            exit 1
-        fi
+        tar -zxvf "${ONNXRUNTIME_FILE}" -C "$PROJECT_ROOT"
     else
-        echo "Error: Failed to extract ONNX Runtime."
-        exit 1
+        unzip "${ONNXRUNTIME_FILE}" -d "$PROJECT_ROOT"
     fi
-
     rm -f "${ONNXRUNTIME_FILE}"
 }
 
 # Function to build the project
 build_project() {
     local build_type="${1:-Release}"
-    local build_dir="${CURRENT_DIR}/build"
+    local build_dir="${PROJECT_ROOT}/build/benchmarks"
 
-    # Ensure the build directory exists
     mkdir -p "$build_dir"
     cd "$build_dir"
 
     echo "Configuring CMake with build type: $build_type ..."
-    cmake .. -D ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}" -DCMAKE_BUILD_TYPE="$build_type" -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=native"
+    cmake ../../benchmarks -D ONNXRUNTIME_DIR="${ONNXRUNTIME_DIR}" -DCMAKE_BUILD_TYPE="$build_type" -DCMAKE_CXX_FLAGS_RELEASE="-O3 -march=native"
 
     echo "Building unified benchmark tool ..."
-    cmake --build . -- -j$(nproc)  # Parallel build using available CPU cores
-    
-    echo "Build completed successfully."
+    cmake --build . -- -j$(nproc)
 }
 
 # Function to run benchmarks
 run_benchmarks() {
-    local benchmark_exe="${CURRENT_DIR}/build/yolo_unified_benchmark"
+    local benchmark_exe="${PROJECT_ROOT}/build/benchmarks/yolo_unified_benchmark"
     
     if [[ ! -f "$benchmark_exe" ]]; then
         echo "Error: Benchmark executable not found: $benchmark_exe"
@@ -151,17 +142,15 @@ run_benchmarks() {
     fi
     
     cd "$PROJECT_ROOT"
-    
     echo ""
     echo "=========================================="
     echo "Running Comprehensive Benchmarks"
     echo "=========================================="
     echo ""
     
-    # Run comprehensive benchmark
-    "$benchmark_exe" comprehensive
+    mkdir -p benchmarks/results
+    "$benchmark_exe" comprehensive --output-dir benchmarks/results
     
-    # If evaluation dataset is provided, run accuracy evaluation
     if [[ -n "$EVAL_DATASET" && -d "$EVAL_DATASET" ]]; then
         echo ""
         echo "=========================================="
@@ -169,7 +158,6 @@ run_benchmarks() {
         echo "=========================================="
         echo ""
         
-        # Check for ground truth labels
         GT_LABELS_DIR="${EVAL_DATASET}/../labels_val2017"
         if [[ ! -d "$GT_LABELS_DIR" ]]; then
             GT_LABELS_DIR="${EVAL_DATASET}/labels"
@@ -185,56 +173,35 @@ run_benchmarks() {
                 fi
                 
                 echo "Evaluating model: $model"
-                "$benchmark_exe" evaluate yolo11 detection "$model_path" models/coco.names "$EVAL_DATASET" "$GT_LABELS_DIR" --gpu
-                echo ""
+                "$benchmark_exe" evaluate yolo11 detection "$model_path" models/coco.names "$EVAL_DATASET" "$GT_LABELS_DIR" --gpu --output-dir benchmarks/results
             done
         else
             echo "Warning: Ground truth labels directory not found. Skipping accuracy evaluation."
-            echo "Expected locations: ${EVAL_DATASET}/../labels_val2017 or ${EVAL_DATASET}/labels"
         fi
     else
         echo ""
         echo "No evaluation dataset provided. Skipping accuracy evaluation."
-        echo "To run accuracy evaluation, provide dataset path as 4th argument."
     fi
     
     echo ""
     echo "=========================================="
     echo "Benchmarking Complete!"
     echo "=========================================="
-    echo "Results saved in: results/"
+    echo "Results saved in: benchmarks/results/"
     echo ""
 }
 
 # Main script execution
-echo "=========================================="
-echo "YOLO Unified Benchmark - Auto Build & Run"
-echo "=========================================="
-echo ""
-
-# Check dependencies
 if ! command -v cmake &> /dev/null; then
-    echo "Error: CMake is not installed. Please install CMake 3.16 or higher."
+    echo "Error: CMake is not installed."
     exit 1
 fi
 
-if ! command -v curl &> /dev/null; then
-    echo "Error: curl is not installed. Please install curl."
-    exit 1
-fi
-
-# Download ONNX Runtime if needed
 if [ ! -d "$ONNXRUNTIME_DIR" ]; then
     download_onnxruntime
-else
-    echo "ONNX Runtime already exists. Skipping download."
 fi
 
-# Build the project
 build_project "Release"
-
-# Run benchmarks
 run_benchmarks
 
 echo "All done!"
-

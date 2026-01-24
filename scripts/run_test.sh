@@ -25,7 +25,8 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     usage
 fi
 
-cd tests
+PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+cd "${PROJECT_ROOT}/tests"
 
 case "$TEST_TASK" in
     0)

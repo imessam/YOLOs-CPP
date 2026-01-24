@@ -8,24 +8,24 @@
 #define STRING(x) #x
 #define XSTRING(x) STRING(x)
 
-using json = nlohmann::json;
+
 
 constexpr double CONF_ERROR_MARGIN = 0.1; // +-0.1 difference allowed in confidence scores
 
-json read_json(const std::string& path) {
+nlohmann::json read_json(const std::string& path) {
     std::ifstream f(path);
     if (!f.is_open()) {
         throw std::runtime_error("File not found: " + path);
     }
-    json j;
+   nlohmann::json j;
     f >> j;
     return j;
 }
 
 class ResultsFixtureCls : public ::testing::Test {
 protected:
-    json results_ultralytics;
-    json results_cpp;
+   nlohmann::json results_ultralytics;
+   nlohmann::json results_cpp;
     std::string basePath = XSTRING(BASE_PATH_CLASSIFICATION);
 
     void SetUp() override {
@@ -88,8 +88,8 @@ TEST_F(ResultsFixtureCls, CompareTop1Classification) {
         auto& cpp_results = results_cpp[model_name]["results"];
 
         for (size_t i = 0; i < ultra_results.size(); ++i) {
-            auto ultra_infs = ultra_results[i].value("inference_results", json::array());
-            auto cpp_infs = cpp_results[i].value("inference_results", json::array());
+            auto ultra_infs = ultra_results[i].value("inference_results",nlohmann::json::array());
+            auto cpp_infs = cpp_results[i].value("inference_results",nlohmann::json::array());
 
             std::string image_path = ultra_results[i].value("image_path", "");
 
